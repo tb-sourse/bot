@@ -1,0 +1,50 @@
+{
+    "tg-api-token": "2126778131:AAGjGe5u2mEgKEI_eNJmSrBeukRwH3M2K_Q",
+    "tg-users-id": [
+        454814586,
+        206231460,
+        132261931
+    ],
+    "servers": {
+        "10.120.1.119": {
+            "ip": "10.120.1.119",
+            "client_id": "dc13b817695c6ac9f85f9335194c38f398033e00",
+            "client_secret": "98d2f1d8b195511c28b880e4bd751df4676e5579",
+            "access_token": "5f24aa0d4ba0bb7c2f23614ba60acea792a6c5a7",
+            "server_status": {
+                "state": 0,
+                "timeout": 15
+            }
+        },
+        "192.168.43.85": {
+            "ip": "192.168.43.85",
+            "client_id": "e2633da5cfbc56f43f69c30f06727dfe4fa1a067",
+            "client_secret": "b97fc03b30d8f3011dc13abd205ec9f5610861e0",
+            "access_token": "2f7d2b5eeba33fcfbe7c2f419b0d2114dbe5dc27",
+            "server_status": {
+                "state": 0,
+                "timeout": 15
+            }
+        },
+        "video.trueconf.com": {
+            "ip": "video.trueconf.com",
+            "client_id": "21b15ef72549717b9bf4661cd289ef79420d5ab9",
+            "client_secret": "3bf51c822ac6ed74d2a35fc2e23edfd96376133b",
+            "access_token": "27da34c16ba278c1153ea071664629f19b8bb134",
+            "server_status": {
+                "state": 0,
+                "timeout": 15
+            }
+        },
+        "10.120.1.141": {
+            "ip": "10.120.1.141",
+            "client_id": "8bc82cc0532536b0585d0ec1485f2ebf051a58b5",
+            "client_secret": "48295bac2a17f89e86acb90e18a356495f110aaf",
+            "access_token": "aab91c19cf19476d9869d54399be7b6964ee0cf2",
+            "server_status": {
+                "state": 0,
+                "timeout": 15
+            }
+        }
+    }
+}
