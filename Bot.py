@@ -1,4 +1,5 @@
 from typing import List
+import os
 import requests
 import json
 from requests.exceptions import HTTPError
@@ -7,8 +8,8 @@ import shelve
 import threading
 import datetime
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update #upm package(python-telegram-bot)
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext # upm package(python-telegram-bot)
 
 SETTINGS: dict = {}
 
@@ -84,23 +85,26 @@ def get_access_token(server) -> None:
 
 
 def get_participants_list(server, session_id):
-    response = requests.request(
-        "GET", url="https://{0}/api/v3.3/conference-sessions/{1}/participants?access_token={2}".format(server['ip'], session_id, server['access_token']), verify=False)
-    count = json.loads(response.text)['count']
-    participants = json.loads(response.text)['participants']
-    if len(participants) == 1 and participants[0]['role'] == 2:
+    try:
+        response = requests.get("https://{0}/api/v3.3/conference-sessions/{1}/participants?access_token={2}".format(server['ip'], session_id, server['access_token']), verify=False,timeout=5)
+        response.raise_for_status()
+        count = json.loads(response.text)['count']
+        participants = json.loads(response.text)['participants']
+        if len(participants) == 1 and participants[0]['role'] == 2:
+            return True, count
+        else:
+            for i in participants:
+                if i['role'] == 2:
+                    return False, count
         return True, count
-    else:
-        for i in participants:
-            if i['role'] == 2:
-                return False, count
-    return True, count
+    except HTTPError:
+        return False, 0
+
 
 
 def get_forgotten_conference(server) -> List:
     try:
-        response = requests.request(
-            "GET", url="https://{0}/api/v3.3/logs/calls?access_token={1}&sort_field=end_time&sort_order=1&page_size=500".format(server['ip'], server['access_token']), verify=False)
+        response = requests.get("https://{0}/api/v3.3/logs/calls?access_token={1}&sort_field=end_time&sort_order=1&page_size=500".format(server['ip'], server['access_token']), verify=False, timeout=5)
         response.raise_for_status()  # проверка статуса ответа
         forgotten_list = []
         for i in json.loads(response.text)['list']:
@@ -165,8 +169,7 @@ def get_result_forgotten(update: Update, context: CallbackContext) -> None:
 
 def get_conference_running(server) -> List:
     try:
-        response = requests.request(
-            "GET", url="https://{0}/api/v3.3/logs/calls?access_token={1}&sort_field=end_time&sort_order=1&page_size=200".format(server['ip'], server['access_token']), verify=False)
+        response = requests.get("https://{0}/api/v3.3/logs/calls?access_token={1}&sort_field=end_time&sort_order=1&page_size=200".format(server['ip'], server['access_token']), verify=False,timeout=5)
         response.raise_for_status()  # проверка статуса ответа
         run_list = []
         for i in json.loads(response.text)['list']:
@@ -206,9 +209,7 @@ def stop_conference(update: Update, context: CallbackContext):
     conf_id = q[3]
     flag = q[2]
     try:
-        response = requests.request(
-            "POST",
-            url="https://{}/api/v3.3/conferences/{}/stop?access_token={}".format(
+        response = requests.post("https://{}/api/v3.3/conferences/{}/stop?access_token={}".format(
                 server['ip'], conf_id, server['access_token']), verify=False)
         print(response.text)
         if response.status_code != 200:
@@ -224,10 +225,14 @@ def stop_conference(update: Update, context: CallbackContext):
 
 def one_check_status(server):
     try:
-        if requests.get("http://{}:4307/vsstatus".format(server)).status_code == requests.codes.ok:
+        response = requests.get("http://{}:4307/vsstatus".format(server),timeout=5)
+        response.raise_for_status()
+        if response.status_code == requests.codes.ok:
             return STRINGS['one_status_on']
     except requests.exceptions.ConnectionError:
         return STRINGS['one_status_off']
+    except HTTPError:
+        return False
 
 
 def check_status(update: Update, server, state):
@@ -283,8 +288,7 @@ def check_status_button(update: Update, context: CallbackContext):
 def get_online_users(server) -> List:
     online_count = 0
     try:
-        response = requests.request(
-            "GET", url="https://{0}/api/v3.3/users?access_token={1}".format(server['ip'], server['access_token']), verify=False)
+        response = requests.get("https://{0}/api/v3.3/users?access_token={1}".format(server['ip'], server['access_token']), verify=False,timeout=5)
         response.raise_for_status()  # проверка статуса ответа
         for i in json.loads(response.text)['users']:
             if i['status'] in (1, 2, 5):
@@ -489,6 +493,7 @@ def main():
 if __name__ == '__main__':
     with open("settings.json", "r") as read_file:
         SETTINGS = json.load(read_file)
+    # SETTINGS = json.loads(os.environ['settings'])    
     TG_API_TOKEN = SETTINGS['tg-api-token']
     TG_USERS_ID = SETTINGS['tg-users-id']
     SERVERS = SETTINGS['servers']
