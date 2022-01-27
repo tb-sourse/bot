@@ -9,7 +9,7 @@ import threading
 import datetime
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update #upm package(python-telegram-bot)
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext # upm package(python-telegram-bot)
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext #upm package(python-telegram-bot)
 
 SETTINGS: dict = {}
 
@@ -77,7 +77,8 @@ def get_access_token(server) -> None:
         SETTINGS["servers"][server['ip']
                             ]['access_token'] = server['access_token']
         with open("settings.json", "w") as read_file:
-            json.dump(SETTINGS, read_file)
+            json.dump(SETTINGS, read_file) # for local file
+        # json.dump(SETTINGS, os.environ['settings']) # for Replit
         return True
     except HTTPError:
         if json.loads(response.text)['reason'] == 'InvalidCredentials':
@@ -493,7 +494,7 @@ def main():
 if __name__ == '__main__':
     with open("settings.json", "r") as read_file:
         SETTINGS = json.load(read_file)
-    # SETTINGS = json.loads(os.environ['settings'])    
+    # SETTINGS = json.loads(os.environ['settings']) # for Replit
     TG_API_TOKEN = SETTINGS['tg-api-token']
     TG_USERS_ID = SETTINGS['tg-users-id']
     SERVERS = SETTINGS['servers']
