@@ -6,7 +6,7 @@
         132261931
     ],
     "servers": {
-        "10.120.1.119": {
+        "server #1": {
             "ip": "10.120.1.119",
             "client_id": "dc13b817695c6ac9f85f9335194c38f398033e00",
             "client_secret": "98d2f1d8b195511c28b880e4bd751df4676e5579",
@@ -26,7 +26,7 @@
                 "timeout": 15
             }
         },
-        "video.trueconf.com": {
+        "video.mycompany.name": {
             "ip": "video.trueconf.com",
             "client_id": "21b15ef72549717b9bf4661cd289ef79420d5ab9",
             "client_secret": "3bf51c822ac6ed74d2a35fc2e23edfd96376133b",
@@ -36,7 +36,7 @@
                 "timeout": 15
             }
         },
-        "10.120.1.141": {
+        "srv №2": {
             "ip": "10.120.1.141",
             "client_id": "8bc82cc0532536b0585d0ec1485f2ebf051a58b5",
             "client_secret": "48295bac2a17f89e86acb90e18a356495f110aaf",
