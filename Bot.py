@@ -8,14 +8,14 @@ import shelve
 import threading
 import datetime
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update #upm package(python-telegram-bot)
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext #upm package(python-telegram-bot)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update #upm package(python-telegram-bot)
 
 SETTINGS: dict = {}
 
 STRINGS = {
     "access_denied": "Только владелец может общаться со своим ботом.",
-    "error_oauth2": "⚠️ На сервере {} некорректно настроено < b > OAuth2 < /b > приложение.",
+    "error_oauth2": "⚠️ На сервере {} некорректно настроено <b> OAuth2 </b> приложение.",
     "found_forgotten_conf": "🔍 На сервере {} найдены следующие возможно забытые конференции:\n",
     "description_conf": '\n<b>ID:</b> <a href="{5}/c/{0}">{0}</a>\n'
     '<b>Название: </b>{2}\n'
@@ -49,7 +49,8 @@ STRINGS = {
     "find_forgotten_conf": "🔍 Найти забытые конференции",
     "server_selected": 'Выбран сервер {}. Что нужно сделать?',
     "confirm_stop": "🛑 Да, остановить",
-    "confirm_stop_message": "❗Вы действительно хотите остановить конференцию <b>{}</b>?"
+    "confirm_stop_message": "❗Вы действительно хотите остановить конференцию <b>{}</b>?",
+    "connection_error": "❌ <b>Подключение к серверу {} не установлено!</b>\nПроверьте вашу сеть и доступность к вашему серверу."
 }
 
 
@@ -78,7 +79,7 @@ def get_access_token(server) -> None:
                             ]['access_token'] = server['access_token']
         with open("settings.json", "w") as read_file:
             json.dump(SETTINGS, read_file) # for local file
-        # json.dump(SETTINGS, os.environ['settings']) # for Replit
+        # json.dumps(SETTINGS, os.environ['settings']) # for Replit
         return True
     except HTTPError:
         if json.loads(response.text)['reason'] == 'InvalidCredentials':
@@ -116,12 +117,18 @@ def get_forgotten_conference(server) -> List:
                     forgotten_list.append(
                         {'conf_id': req.pathname2url(i['conference_id']), 'named_id': i['named_conf_id'], 'participant_count': participant_count, 'topic': i['topic'], 'owner': i['owner'], 'duration': str(datetime.timedelta(seconds=i['duration']))})
         return forgotten_list
-    except HTTPError:
-        if json.loads(response.text)['error']['errors'][0]['reason'] == 'accessTokenInvalid':
-            if get_access_token(server):
-                return get_forgotten_conference(server)
-            else:
-                return None
+    except requests.exceptions.HTTPError:
+        if response.status_code == 403:
+            if json.loads(response.text)['error']['errors'][0]['reason'] == 'accessTokenInvalid':
+                if get_access_token(server):
+                    return get_forgotten_conference(server)
+                else:
+                    return None
+        if response.status_code == 404:
+            return "ConnectionError"
+    except requests.exceptions.ConnectTimeout:
+        return "ConnectionError"
+        
 
 
 def get_result_forgotten(update: Update, context: CallbackContext) -> None:
@@ -136,6 +143,9 @@ def get_result_forgotten(update: Update, context: CallbackContext) -> None:
     if forgotten_list is None:
         update.message.edit_text(STRINGS['error_oauth2']
                                  .format(server), reply_markup=InlineKeyboardMarkup(keyboard_back), parse_mode="HTML")
+    elif forgotten_list == "ConnectionError":
+        query.message.edit_text(STRINGS['connection_error'].format(
+            server), reply_markup=InlineKeyboardMarkup(keyboard_back), parse_mode="HTML")
     elif forgotten_list:
         keyboard_stop = []
         keyboard_stop.append([])
@@ -182,12 +192,17 @@ def get_conference_running(server) -> List:
                 run_list.append(
                     {'conf_id': req.pathname2url(i['conference_id']), 'named_id': i['named_conf_id'], 'participant_count': i['participant_count'], 'topic': topic, 'owner': i['owner'], 'duration': str(datetime.timedelta(seconds=i['duration']))})
         return run_list
-    except HTTPError:
-        if json.loads(response.text)['error']['errors'][0]['reason'] == 'accessTokenInvalid':
-            if get_access_token(server):
-                return get_conference_running(server)
-            else:
-                return None
+    except requests.exceptions.HTTPError:
+        if response.status_code == 403:
+            if json.loads(response.text)['error']['errors'][0]['reason'] == 'accessTokenInvalid':
+                if get_access_token(server):
+                    return get_conference_running(server)
+                else:
+                    return None
+        if response.status_code == 404:
+            return "ConnectionError"
+    except requests.exceptions.ConnectTimeout:
+        return "ConnectionError"
 
 
 def stop_conference_button(update: Update, context: CallbackContext):
@@ -218,11 +233,14 @@ def stop_conference(update: Update, context: CallbackContext):
         if flag == '0':
             get_result_forgotten(update, context)
         else:
-            get_conference_button(update, context)
-    except HTTPError:
+            get_conference_button(update, context)      
+    except requests.exceptions.HTTPError:
         if json.loads(response.text)['reason'] == 'InvalidCredentials':
             return False
-
+        if response.status_code == 404:
+            return False
+    except requests.exceptions.ConnectTimeout:
+        return False
 
 def one_check_status(server):
     try:
@@ -230,10 +248,11 @@ def one_check_status(server):
         response.raise_for_status()
         if response.status_code == requests.codes.ok:
             return STRINGS['one_status_on']
+    except requests.exceptions.ConnectTimeout:
+        return STRINGS['one_status_off']
     except requests.exceptions.ConnectionError:
         return STRINGS['one_status_off']
-    except HTTPError:
-        return False
+    
 
 
 def check_status(update: Update, server, state):
@@ -276,14 +295,15 @@ def check_status_button(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     update.message = query.message
-    server = str(query.data).split('|')[1]
+    server = SERVERS[str(query.data).split('|')[1]]
+    print(server)
     if server['server_status']['state'] == False:
         server['server_status']['state'] = True
         check_status(update, server, 1)
     else:
         server['server_status']['state'] = False
-        check_status(update, SERVERS[server], 0)
-    server_status(update, context, SERVERS[server])
+        check_status(update, server, 0)
+    server_status(update, context, server)
 
 
 def get_online_users(server) -> List:
@@ -295,12 +315,17 @@ def get_online_users(server) -> List:
             if i['status'] in (1, 2, 5):
                 online_count += 1
         return online_count
-    except HTTPError:
-        if json.loads(response.text)['error']['errors'][0]['reason'] == 'accessTokenInvalid':
-            if get_access_token(server):
-                return get_online_users(server)
-            else:
-                return None
+    except requests.exceptions.HTTPError:
+        if response.status_code == 403:
+            if json.loads(response.text)['error']['errors'][0]['reason'] == 'accessTokenInvalid':
+                if get_access_token(server):
+                    return get_online_users(server)
+                else:
+                    return None
+        if response.status_code == 404:
+            return "ConnectionError"
+    except requests.exceptions.ConnectTimeout:
+        return "ConnectionError"
 
 
 def online_users_button(update: Update, context: CallbackContext):
@@ -315,9 +340,13 @@ def online_users_button(update: Update, context: CallbackContext):
     if online_list is None:
         query.message.edit_text(
             STRINGS['error_oauth2'].format(server), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
-    elif online_list != 0:
+    elif online_list == "ConnectionError":
+        query.message.edit_text(STRINGS['connection_error'].format(
+            server), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+    elif not online_list:
         query.message.edit_text(STRINGS['online_user'].format(
             server, online_list), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+        
     else:
         query.message.edit_text(
             STRINGS['no_online_user'].format(server), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
@@ -362,6 +391,9 @@ def get_conference_button(update: Update, context: CallbackContext, server=None)
                               callback_data='service_select_button|{}'.format(server))]]
     if run_list is None:
         update.message.edit_text(STRINGS['error_oauth2'].format(
+            server), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+    elif run_list == "ConnectionError":
+        query.message.edit_text(STRINGS['connection_error'].format(
             server), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
     elif run_list:
         keyboard_stop = []
@@ -425,15 +457,6 @@ def server_select_button(update: Update, context: CallbackContext) -> None:
     query.message.edit_text(STRINGS['select_server'],
                             reply_markup=InlineKeyboardMarkup(ssb_keyboard_generator(SERVERS)))
 
-
-def active_calls_button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    update.message = query.message
-    server = str(query.data).split('|')[1]
-    get_conference_button(update, context, server)
-
-
 def service_select_button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
@@ -442,7 +465,7 @@ def service_select_button(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton(STRINGS['server_status'],
                               callback_data='server_status|{}'.format(server))],
         [InlineKeyboardButton(STRINGS['show_run_conf'],
-                              callback_data='active_calls_button|{}'.format(server))],
+                              callback_data='get_conference_button|{}'.format(server))],
         [InlineKeyboardButton(STRINGS['online_user_count'],
                               callback_data='online_users_button|{}'.format(server))],
         [InlineKeyboardButton(STRINGS['find_forgotten_conf'],
@@ -468,7 +491,7 @@ def main():
     dispatcher.add_handler(CallbackQueryHandler(
         service_select_button, pattern='^service_select_button'))
     dispatcher.add_handler(CallbackQueryHandler(
-        active_calls_button, pattern='^active_calls_button'))
+        get_conference_button, pattern='^get_conference_button'))
     dispatcher.add_handler(CallbackQueryHandler(
         server_status, pattern='^server_status'))
     dispatcher.add_handler(CallbackQueryHandler(
